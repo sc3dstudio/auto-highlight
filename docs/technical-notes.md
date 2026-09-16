@@ -192,6 +192,7 @@ plain Python you run on the host, everything in `scripts/` needs a `bpy` and is
 | Script | Question it answers |
 | --- | --- |
 | `tools/build_release.py` | do the installable zips exist, and are they current |
+| `tools/make_assets.py` | are the submission images current, and to spec |
 | `tools/rollout_addon.py` | is the running session executing the source on disk |
 | `scripts/outliner_probe.py` | what do `show_active`, `show_one_level` and `item_openclose` actually do |
 | `scripts/spaceoutliner_prop_check.py` | can the switch live on `SpaceOutliner` (no) |
@@ -201,3 +202,4 @@ plain Python you run on the host, everything in `scripts/` needs a `bpy` and is
 | `scripts/final_check.py` | do the UI hooks leak across a reload |
 | `scripts/rollout_smoke.py` | does a real reload leave one timer and one set of hooks |
 | `scripts/verify_zip.py` | do both built archives install and register |
+| `scripts/capture_preview.py` | take the nested-tree preview from a clean demo tree, not from a test fixture |

@@ -10,8 +10,11 @@
 *.exr
 _probe/
 
-# ... except the images the README needs
+# ... except the images the README and the submission need. Both patterns are
+# needed: "!assets/*.png" does not reach into a subdirectory, so the platform
+# images under assets/platform/ stayed ignored until this line existed.
 !assets/*.png
+!assets/**/*.png
 
 # Build output
 dist/
