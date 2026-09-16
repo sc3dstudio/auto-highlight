@@ -28,7 +28,11 @@ class OUTLINER_OT_auto_highlight_sync(bpy.types.Operator):
         "Run Auto-Highlight immediately instead of waiting for the active "
         "object to change"
     )
-    bl_options = {'INTERNAL'}
+    # Not INTERNAL: that would hide the operator from the operator search, and
+    # this one is meant to be findable so it can be bound to a shortcut. Empty
+    # rather than the default REGISTER|UNDO — it changes nothing that undo
+    # should own.
+    bl_options = set()
 
     @classmethod
     def poll(cls, context):
@@ -49,7 +53,10 @@ class OUTLINER_OT_auto_highlight_apply_all(bpy.types.Operator):
         "Turn Auto-Highlight on for every Scene in this file. Useful when a "
         "file was authored before the add-on was enabled"
     )
-    bl_options = {'INTERNAL'}
+    # Not INTERNAL, for the same reason as the sync operator: findable in the
+    # operator search is a feature, not a leak. Empty rather than REGISTER|UNDO,
+    # because there is nothing here for undo to own.
+    bl_options = set()
 
     def execute(self, context):
         from . import properties, watcher

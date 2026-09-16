@@ -126,6 +126,7 @@ deliberately deep tree (`Root > A > B > C > object` plus siblings), using
 | the Filters row renders | `OUTLINER_PT_filter` draws inside a popover that cannot be opened from Python, so a temporary function appended to `OUTLINER_HT_header` called the real `_draw_filter` with a real `UILayout`: 6 redraws, no exception |
 | no leak in the UI hooks | `OUTLINER_HT_header` / `OUTLINER_PT_filter` draw lists go 2 → 1 → 2 across unregister/register, and contain our function exactly once |
 | the preferences class is valid | all four fields plus `bl_idname` present in the RNA |
+| both operators actually run | not just registered: `apply_all` was invoked with every scene's flag off and left them on, returning `FINISHED` and its INFO report; `sync` was invoked with the tree collapsed **and the active object unchanged** — the one case the timer would skip — and the screenshot shows its collection reopened and its row highlighted |
 | the built zip really installs | extracted `dist/outliner-highlight-0.1.0.zip` into a temp dir, put it on `sys.path`, imported and registered from there, then unregistered. It asserts `__file__` points **into the extraction** — the working copy sits next to it under the same module name, so without that check a green run would prove nothing |
 
 The scripts are in [`scripts/`](scripts/) and are meant to be re-run after a
@@ -154,6 +155,7 @@ plain Python you run on the host, everything in `scripts/` needs a `bpy` and is
 | `scripts/spaceoutliner_prop_check.py` | can the switch live on `SpaceOutliner` (no) |
 | `scripts/live_check.py` | does the timer reveal the active object, flat and nested |
 | `scripts/verify_ui_and_collapse_off.py` | does the Filters row draw; does the collapse switch do anything |
+| `scripts/verify_operators.py` | do both operators actually run, or only exist |
 | `scripts/final_check.py` | do the UI hooks leak across a reload |
 | `scripts/rollout_smoke.py` | does a real reload leave one timer and one set of hooks |
 | `scripts/verify_zip.py` | does the built zip install and register like a real install |
