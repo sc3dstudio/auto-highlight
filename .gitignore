@@ -10,6 +10,9 @@
 *.exr
 _probe/
 
+# ... except the images the README needs
+!assets/*.png
+
 # Build output
 dist/
 

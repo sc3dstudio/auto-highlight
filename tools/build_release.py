@@ -1,32 +1,48 @@
-"""Build the installable add-on zip.
+"""Build the two installable zips: a Blender extension and a classic add-on.
 
 Run:  python tools/build_release.py [--check]
 
-Why the archive layout is not a free choice
--------------------------------------------
+Why two artifacts
+-----------------
 
-Blender's *Install from Disk* unpacks a zip into ``scripts/addons/`` and imports
-the top-level package it finds there. So ``outliner_highlight/`` has to sit at
-the **root** of the archive. Wrapping it in a ``outliner-highlight/`` folder —
-the natural thing to do, since that is what the repo is called — produces an
-add-on that installs without a single error message and never shows up in the
-list. ``--check`` exists to catch that class of mistake rather than to be tidy.
+Blender 4.2 replaced add-ons with extensions, and the two are packaged
+differently:
+
+* **extension** — the archive root *is* the package: ``__init__.py`` and
+  ``blender_manifest.toml`` sit side by side at the top, with no wrapper folder.
+  Install via *Get Extensions > Install from Disk*, or by dropping the zip onto
+  Blender.
+* **classic add-on** — the archive contains a package folder
+  (``outliner_highlight/``) which Blender unpacks into ``scripts/addons/`` and
+  imports by that name. Needed for a hand-managed ``scripts/addons`` setup, and
+  for anything older than 4.2.
+
+Both are built from the same source tree, so they cannot drift. The manifest is
+excluded from the classic zip on purpose: a legacy add-on folder that carries a
+``blender_manifest.toml`` is a valid and ambiguous thing to hand Blender, and
+nothing here needs it.
 
 Version comes from ``bl_info``
 ------------------------------
 
 ``bl_info["version"]`` is the one place the version lives; it is parsed out of
-the source with :mod:`ast` instead of being imported, so the build works without
-Blender and without adding the package to ``sys.path``. Restating the version in
-this file would guarantee the day the two disagree.
+the source with :mod:`ast` rather than being imported, so the build works
+without Blender and without adding the package to ``sys.path``. The manifest
+repeats it for the extension format and ``--check`` fails when the two disagree,
+because that is a drift nobody would notice until an update misbehaved.
 
-``--check`` compares the archive against the files on disk
----------------------------------------------------------
+``--check``
+-----------
 
-Not the zip bytes — those move with compression and timestamps — but the set of
-members with their sizes and content hashes. That is what "the zip is stale"
-actually means, and it is the only failure mode that matters here: a released
-zip quietly missing the last fix.
+Compares each archive against the files on disk — not the zip bytes, which move
+with compression and timestamps, but the member set with sizes and content
+hashes. That is what "the zip is stale" actually means, and it is the failure
+that matters: a release quietly missing the last fix.
+
+The extension is validated by Blender itself, which knows the format better than
+this script does::
+
+    blender --command extension validate dist/outliner-highlight-0.1.0.zip
 """
 
 from __future__ import annotations
@@ -35,6 +51,7 @@ import argparse
 import ast
 import hashlib
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -42,9 +59,11 @@ PACKAGE = "outliner_highlight"
 REPO = Path(__file__).resolve().parent.parent
 DIST = REPO / "dist"
 
+MANIFEST = "blender_manifest.toml"
+
 # Never shipped. __pycache__ most of all: it is regenerated on import, it bloats
 # the archive, and on a mixed-version machine it can shadow the real source.
-EXCLUDE_DIRS = {"__pycache__", ".git", ".zcode", "dist", "docs", "scripts", "tools"}
+EXCLUDE_DIRS = {"__pycache__", ".git", ".zcode"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo", ".blend1", ".blend2"}
 
 
@@ -57,7 +76,14 @@ def read_bl_info(package: Path) -> dict:
     raise SystemExit(f"no bl_info found in {package / '__init__.py'}")
 
 
-def sources(package: Path) -> list[Path]:
+def read_manifest(package: Path) -> dict:
+    path = package / MANIFEST
+    if not path.is_file():
+        raise SystemExit(f"no {MANIFEST} in {package}")
+    return tomllib.loads(path.read_text(encoding="utf-8"))
+
+
+def package_files(package: Path) -> list[Path]:
     found = []
     for path in sorted(package.rglob("*")):
         if not path.is_file():
@@ -70,42 +96,63 @@ def sources(package: Path) -> list[Path]:
     return found
 
 
-def manifest(package: Path) -> dict:
-    """arcname -> (size, sha256) for everything the archive should contain."""
+def members(package: Path, *, root_level: bool, with_manifest: bool) -> dict:
+    """arcname -> bytes for one of the two layouts."""
     rows = {}
-    for path in sources(package):
-        data = path.read_bytes()
-        arc = path.relative_to(REPO).as_posix()
-        rows[arc] = (len(data), hashlib.sha256(data).hexdigest())
+    for path in package_files(package):
+        relative = path.relative_to(package)
+        if not with_manifest and relative.name == MANIFEST:
+            continue
+        arc = relative.as_posix() if root_level else f"{PACKAGE}/{relative.as_posix()}"
+        rows[arc] = path.read_bytes()
     return rows
 
 
-def archive_manifest(archive: Path) -> dict:
+def layouts(package: Path) -> dict:
+    return {
+        "extension": members(package, root_level=True, with_manifest=True),
+        "legacy": members(package, root_level=False, with_manifest=False),
+    }
+
+
+def hash_of(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def archive_members(archive: Path) -> dict:
     with zipfile.ZipFile(archive) as zf:
-        rows = {}
-        for info in zf.infolist():
-            if info.is_dir():
-                continue
-            data = zf.read(info.filename)
-            rows[info.filename] = (len(data), hashlib.sha256(data).hexdigest())
-        return rows
+        return {
+            info.filename: zf.read(info.filename)
+            for info in zf.infolist()
+            if not info.is_dir()
+        }
 
 
-def build(package: Path, target: Path) -> dict:
-    rows = manifest(package)
-    if not rows:
-        raise SystemExit(f"nothing to pack under {package}")
-    if f"{PACKAGE}/__init__.py" not in rows:
-        raise SystemExit(
-            f"{PACKAGE}/__init__.py is not at the archive root — Blender would "
-            "install this and never list it"
-        )
-
+def write(target: Path, rows: dict) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
         for arc in sorted(rows):
-            zf.write(REPO / arc, arc)
-    return rows
+            zf.writestr(arc, rows[arc])
+
+
+def check(target: Path, rows: dict) -> list:
+    if not target.exists():
+        return [f"{target.name} does not exist — run without --check"]
+    have = archive_members(target)
+    problems = []
+    for name in sorted(set(rows) - set(have)):
+        problems.append(f"{target.name}: missing from zip: {name}")
+    for name in sorted(set(have) - set(rows)):
+        problems.append(f"{target.name}: not in sources: {name}")
+    for name in sorted(set(have) & set(rows)):
+        if hash_of(have[name]) != hash_of(rows[name]):
+            problems.append(f"{target.name}: content differs: {name}")
+    return problems
+
+
+def targets(version: str) -> dict:
+    base = f"outliner-highlight-{version}"
+    return {"extension": DIST / f"{base}.zip", "legacy": DIST / f"{base}-legacy.zip"}
 
 
 def main(argv: list[str]) -> int:
@@ -113,42 +160,53 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="verify the existing zip matches the sources instead of rebuilding",
+        help="verify the existing zips match the sources instead of rebuilding",
     )
     args = parser.parse_args(argv)
 
     package = REPO / PACKAGE
     info = read_bl_info(package)
+    manifest = read_manifest(package)
     version = ".".join(str(part) for part in info["version"])
-    target = DIST / f"{PACKAGE.replace('_', '-')}-{version}.zip"
+    files = targets(version)
+    rows = layouts(package)
+
+    # The two files that state the version have to agree; only one of them is
+    # read at a time, so a drift here is invisible until an update misbehaves.
+    if manifest["version"] != version:
+        print(f"  VERSION MISMATCH: bl_info {version} vs manifest {manifest['version']}")
+        return 1
+    if manifest["id"] != PACKAGE:
+        print(f"  ID MISMATCH: manifest id {manifest['id']!r} vs package {PACKAGE!r}")
+        return 1
 
     if args.check:
-        if not target.exists():
-            print(f"  {target.name} does not exist — run without --check")
+        problems = []
+        for kind, target in files.items():
+            problems += check(target, rows[kind])
+        if problems:
+            for line in problems:
+                print(f"  {line}")
+            print("  the zips are STALE — rebuild them")
             return 1
-        want = manifest(package)
-        have = archive_manifest(target)
-        missing = sorted(set(want) - set(have))
-        extra = sorted(set(have) - set(want))
-        changed = sorted(k for k in set(want) & set(have) if want[k] != have[k])
-        if missing or extra or changed:
-            for label, names in (("missing from zip", missing),
-                                 ("not in sources", extra),
-                                 ("content differs", changed)):
-                for name in names:
-                    print(f"  {label}: {name}")
-            print(f"  {target.name} is STALE — rebuild it")
-            return 1
-        print(f"  {target.name} matches the sources ({len(want)} files)")
+        for kind, target in files.items():
+            print(f"  {target.name} matches the sources ({len(rows[kind])} files)")
         return 0
 
-    rows = build(package, target)
-    size = target.stat().st_size
     print(f"  {info['name']} {version}  (blender {info['blender']})")
-    print(f"  {target.relative_to(REPO).as_posix()}  {size:,} B  {len(rows)} files")
-    for arc in sorted(rows):
-        print(f"    {arc:<44} {rows[arc][0]:>6} B")
-    print("  install with Blender > Preferences > Add-ons > Install from Disk")
+    for kind, target in files.items():
+        write(target, rows[kind])
+        print(f"  {target.relative_to(REPO).as_posix()}  {target.stat().st_size:,} B  "
+              f"{len(rows[kind])} files  [{kind}]")
+    for arc in sorted(rows["extension"]):
+        print(f"    extension root: {arc}")
+
+    blender_min = manifest["blender_version_min"]
+    print(f"  extension: Blender {blender_min}+, Get Extensions > Install from Disk")
+    print(f"  legacy:    {info['blender']}+, Preferences > Add-ons > Install from Disk")
+    print("  validate the extension with:")
+    print(f"    blender --command extension validate "
+          f"{files['extension'].relative_to(REPO).as_posix()}")
     return 0
 
 
