@@ -63,7 +63,7 @@ bl_info = {
         "collections and can collapse everything else."
     ),
     "author": "sc3d.studio",
-    "version": (0, 1, 0),
+    "version": (0, 1, 1),
     # 4.2 rather than the 3.3 this code would probably still run on: 4.2 is what
     # the extension manifest can declare, and shipping two different minimums for
     # the same source is a lie waiting to drift. Only 5.2.1 has actually been run

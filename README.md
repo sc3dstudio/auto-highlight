@@ -26,15 +26,14 @@ idea where the object you just selected actually lives.
 
 ## Install
 
-**Blender 4.2+ (recommended)** — download
-`outliner-highlight-0.1.0.zip` from the
+**Blender 4.2+ (recommended)** — take the extension zip from the
 [latest release](https://github.com/sc3dstudio/auto-highlight/releases) and
 either drag it onto the Blender window, or use *Edit ▸ Preferences ▸ Get
 Extensions ▸ Install from Disk*.
 
-**Classic add-on** — download `outliner-highlight-0.1.0-legacy.zip` and use
-*Edit ▸ Preferences ▸ Add-ons ▸ Install from Disk*. Use this one if you keep
-add-ons in `scripts/addons` by hand or you are on Blender older than 4.2.
+**Classic add-on** — take the `-legacy.zip` from the same release and use *Edit ▸
+Preferences ▸ Add-ons ▸ Install from Disk*. Use this one if you keep add-ons in
+`scripts/addons` by hand or you are on Blender older than 4.2.
 
 ## Using it
 
@@ -85,8 +84,12 @@ the full record: [docs/technical-notes.md](docs/technical-notes.md).
 ```
 python tools/build_release.py          # builds both zips into dist/
 python tools/build_release.py --check  # fails if the zips are older than the sources
-blender --command extension validate dist/outliner-highlight-0.1.0.zip
 ```
+
+The build prints the exact `blender --command extension validate` line for what
+it just produced. Run it — and then actually install the zip, because `validate`
+is not the whole story: it does not enforce the license rule that older Blender
+versions apply at install time.
 
 `tools/rollout_addon.py` reloads a running Blender session onto the current
 source, `scripts/` holds the checks behind every claim above. The technical
@@ -94,6 +97,11 @@ notes explain how it works, what was measured, and what is still missing.
 
 ## License
 
-GPL-2.0-or-later — see [LICENSE](LICENSE). Matching Blender: an add-on that
-imports `bpy` is generally treated as GPL-derived, so a more permissive license
-would be the wrong claim to make rather than a generous one.
+GPL-3.0-or-later — see [LICENSE](LICENSE). An add-on that imports `bpy` is
+generally treated as GPL-derived, so a more permissive license would be the
+wrong claim to make rather than a generous one.
+
+3.0 rather than the 2.0 that matches Blender's own source, because older Blender
+versions refuse to install an extension that is not GPL-3.0-or-later. Blender
+5.2 accepts 2.0, so the rejecting version cannot be reproduced on this machine;
+3.0-or-later is the one value that installs everywhere.

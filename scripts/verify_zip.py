@@ -30,6 +30,7 @@ Das Format selbst prueft Blender besser als dieses Skript::
     blender --command extension validate <extension-zip>
 """
 
+import glob
 import importlib
 import os
 import shutil
@@ -42,12 +43,23 @@ import bpy
 
 REPO = r"C:\Users\conta\Dev\blender-tools\plugins\outliner-highlight"
 PACKAGE = "outliner_highlight"
+DIST = os.path.join(REPO, "dist")
 
-ARCHIVES = (
-    # (Bezeichnung, Dateiname, liegt das Package auf der Archivwurzel?)
-    ("extension", "dist/outliner-highlight-0.1.0.zip", True),
-    ("legacy", "dist/outliner-highlight-0.1.0-legacy.zip", False),
-)
+
+def archives():
+    """Beide Archive aus dist/ finden, ohne den Versionsstand zu wiederholen.
+
+    Eine fest eingetragene Version hier waere bei jedem Release falsch, und zwar
+    still: das Skript wuerde die *alte* Zip pruefen und gruen melden.
+    """
+    found = []
+    for path in sorted(glob.glob(os.path.join(DIST, "outliner-highlight-*.zip"))):
+        is_legacy = path.endswith("-legacy.zip")
+        found.append(("legacy" if is_legacy else "extension",
+                      os.path.relpath(path, REPO), not is_legacy))
+    kinds = {label for label, _path, _rooted in found}
+    assert kinds == {"extension", "legacy"}, f"nicht beide Archive gefunden: {kinds}"
+    return found
 
 lines = []
 
@@ -165,7 +177,7 @@ def restore_workcopy():
 
 
 try:
-    for label, archive, rooted in ARCHIVES:
+    for label, archive, rooted in archives():
         verify(label, archive, rooted)
     restore_workcopy()
     log("ZIP_VERIFY_OK")

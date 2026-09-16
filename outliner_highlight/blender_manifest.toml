@@ -6,17 +6,19 @@ schema_version = "1.0.0"
 # different names for one thing would work and be a trap later.
 id = "outliner_highlight"
 
-version = "0.1.0"
+version = "0.1.1"
 name = "Outliner Auto-Highlight"
 # 64 characters maximum, enforced by `blender --command extension validate`.
 tagline = "Reveals the active object in the Outliner, collapses the rest"
 maintainer = "sc3d.studio <contact@sc3d.studio>"
 type = "add-on"
 
-# GPL-2.0-or-later, matching Blender. An add-on that imports `bpy` is generally
-# treated as GPL-derived, so a permissive license would be the wrong claim to
-# make rather than a generous one.
-license = ["SPDX:GPL-2.0-or-later"]
+# GPL-3.0-or-later, and not the GPL-2.0-or-later that matches Blender's own
+# source. Older Blender versions reject a 2.0 add-on outright, with "license for
+# add-ons must be GPL v3.0 or later" -- which is how this line was found after
+# 0.1.0 shipped. 5.2 accepts the 2.0 id, so the rejecting build cannot be
+# reproduced locally; 3.0-or-later is the only value that installs everywhere.
+license = ["SPDX:GPL-3.0-or-later"]
 
 # The extension format itself starts at 4.2. Only 5.2.1 has actually been run --
 # see docs/technical-notes.md.

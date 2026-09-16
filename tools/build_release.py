@@ -180,6 +180,20 @@ def main(argv: list[str]) -> int:
         print(f"  ID MISMATCH: manifest id {manifest['id']!r} vs package {PACKAGE!r}")
         return 1
 
+    # Not every Blender that supports extensions accepts every license. Older
+    # ones reject an add-on that is not GPL-3.0-or-later outright -- "license for
+    # add-ons must be GPL v3.0 or later" -- while 5.2 still accepts the
+    # GPL-2.0-or-later that matches Blender's own source. So a build checked only
+    # against a local 5.x will happily ship a manifest that other versions
+    # refuse, which is exactly what 0.1.0 did.
+    portable = {"SPDX:GPL-3.0-or-later"}
+    declared = set(manifest.get("license", []))
+    if manifest.get("type") == "add-on" and not (declared & portable):
+        print(f"  LICENSE NOT PORTABLE: {sorted(declared)}")
+        print(f"  an add-on needs {sorted(portable)} to install on every Blender "
+              "that supports extensions")
+        return 1
+
     if args.check:
         problems = []
         for kind, target in files.items():

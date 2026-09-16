@@ -111,6 +111,33 @@ Two things the official validator caught that hand-written checks did not:
   most add-ons copy around and is not in the accepted list — for extensions or
   for `bl_info["category"]`.
 
+### And one thing it does not catch at all: the license
+
+0.1.0 shipped as an extension with `license = ["SPDX:GPL-2.0-or-later"]`,
+matching Blender's own source. On install, Blender answered:
+
+```
+Manifest value error: license for add-ons must be GPL v3.0 or later.
+Additional license are possible, read the documentation.
+e.g., ['SPDX:GPL-3.0-or-later'].
+```
+
+`blender --command extension validate` had said *Success parsing TOML* for that
+same archive, and a hermetic install into a throwaway `BLENDER_USER_CONFIG`
+(`repo-add`, then `install-file`) **also succeeded** on 5.2.1 — both with and
+without `--enable`. GPL-2.0-or-later is still accepted by the version on this
+machine, so the build that rejects it is not here to reproduce against; the
+wording ("Additional license are possible") reads like a rule that was relaxed
+after 4.x.
+
+The fix is `SPDX:GPL-3.0-or-later`, which is accepted by both. `build_release.py`
+now refuses to build an add-on with any other license, and says why — the failure
+is otherwise invisible until somebody installs it on the wrong Blender.
+
+The lesson is not "read the docs more carefully", it is that **validate is not
+install**. The command validates the archive; the license rule is applied by the
+installer, and the two disagree.
+
 ## Not done yet
 
 Ordered by how much they would change the product, not by effort.
