@@ -129,6 +129,16 @@ deliberately deep tree (`Root > A > B > C > object` plus siblings), using
 | both operators actually run | not just registered: `apply_all` was invoked with every scene's flag off and left them on, returning `FINISHED` and its INFO report; `sync` was invoked with the tree collapsed **and the active object unchanged** — the one case the timer would skip — and the screenshot shows its collection reopened and its row highlighted |
 | the built zip really installs | extracted `dist/outliner-highlight-0.1.0.zip` into a temp dir, put it on `sys.path`, imported and registered from there, then unregistered. It asserts `__file__` points **into the extraction** — the working copy sits next to it under the same module name, so without that check a green run would prove nothing |
 
+### The one surface none of this renders
+
+The preferences panel. Getting a real one needs an entry in
+`preferences.addons`, which means enabling the add-on in the user's Blender
+configuration — not something a verification script should write in order to
+check a dozen lines of `layout.prop`. What is covered: the four fields and
+`bl_idname` are confirmed present in the RNA, and the operator its button
+invokes is verified by running it. The panel itself has never been on screen.
+That is a stated gap, not a checked box.
+
 The scripts are in [`scripts/`](scripts/) and are meant to be re-run after a
 change, not read once.
 
