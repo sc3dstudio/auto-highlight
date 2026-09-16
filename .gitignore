@@ -1,0 +1,19 @@
+# Blender
+*.blend1
+*.blend2
+*.blend[0-9]
+*_autosave.blend
+*.crash.txt
+
+# Renders / scratch output
+*.png
+*.exr
+_probe/
+
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/

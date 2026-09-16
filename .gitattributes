@@ -1,0 +1,10 @@
+# Deterministic line endings across machines. The verification scripts compare
+# behaviour rather than text, but a Windows checkout that rewrites every file to
+# CRLF turns any later diff into a whole-tree one for no reason.
+* text=auto eol=lf
+
+*.blend binary
+*.png binary
+*.exr binary
+*.jpg binary
+*.zip binary
